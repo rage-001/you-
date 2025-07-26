@@ -1,66 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Simple Shooting Game</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #000;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            flex-direction: column;
-        }
+  <meta charset="UTF-8" />
+  <title>Shooting Game (Mobile Friendly)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-        canvas {
-            border: 2px solid white;
-            display: block;
-        }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+    }
 
-        #scoreboard {
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
+    #scoreboard {
+      font-size: 18px;
+      margin: 10px;
+    }
 
-        #restartButton {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 18px;
-            background-color: white;
-            color: black;
-            border: none;
-            cursor: pointer;
-            display: none;
-        }
+    canvas {
+      border: 2px solid white;
+      background-color: #000;
+    }
 
-        #restartButton:hover {
-            background-color: #ccc;
-        }
-    </style>
+    #restartButton {
+      margin: 15px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: white;
+      color: black;
+      border: none;
+      cursor: pointer;
+      display: none;
+    }
+
+    #mobileControls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .btn {
+      padding: 15px 20px;
+      font-size: 20px;
+      background-color: white;
+      color: black;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .btn:active {
+      background-color: gray;
+    }
+
+    @media (min-width: 768px) {
+      #mobileControls {
+        display: none;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div id="scoreboard">Score: 0 | High Score: 0</div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <button id="restartButton">Restart Game</button>
 
-<div id="scoreboard">Score: 0 | High Score: 0</div>
-<canvas id="gameCanvas" width="800" height="600"></canvas>
-<button id="restartButton">Restart Game</button>
+  <!-- Mobile Controls -->
+  <div id="mobileControls">
+    <button class="btn" id="leftBtn">⬅️</button>
+    <button class="btn" id="shootBtn">🔫</button>
+    <button class="btn" id="rightBtn">➡️</button>
+  </div>
 
-<script>
+  <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreboard = document.getElementById('scoreboard');
     const restartButton = document.getElementById('restartButton');
 
     const player = {
-        x: canvas.width / 2 - 25,
-        y: canvas.height - 60,
-        width: 50,
-        height: 50,
-        color: 'white',
-        speed: 7
+      x: canvas.width / 2 - 25,
+      y: canvas.height - 60,
+      width: 50,
+      height: 50,
+      color: 'white',
+      speed: 7
     };
 
     let bullets = [];
@@ -71,147 +105,147 @@
     let shootCooldown = 0;
     let gameRunning = true;
 
-    // Handle key events
+    // Key handlers
     window.addEventListener('keydown', (e) => keys[e.code] = true);
     window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-    // Game loop
+    // Mobile buttons
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const shootBtn = document.getElementById('shootBtn');
+
+    let leftPressed = false;
+    let rightPressed = false;
+    let shootPressed = false;
+
+    leftBtn.addEventListener('touchstart', () => leftPressed = true);
+    leftBtn.addEventListener('touchend', () => leftPressed = false);
+
+    rightBtn.addEventListener('touchstart', () => rightPressed = true);
+    rightBtn.addEventListener('touchend', () => rightPressed = false);
+
+    shootBtn.addEventListener('touchstart', () => shootPressed = true);
+    shootBtn.addEventListener('touchend', () => shootPressed = false);
+
     function gameLoop() {
-        if (gameRunning) {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-    }
-
-    // Update game logic
-    function update() {
-        // Move and check enemies first
-        for (let i = enemies.length - 1; i >= 0; i--) {
-            enemies[i].y += 3;
-
-            // Game over if enemy touches bottom
-            if (enemies[i].y + enemies[i].height >= canvas.height) {
-                endGame();
-                return;
-            }
-
-            // Game over if enemy touches player
-            if (isColliding(enemies[i], player)) {
-                endGame();
-                return;
-            }
-
-            // Check bullet collisions
-            for (let j = bullets.length - 1; j >= 0; j--) {
-                if (isColliding(enemies[i], bullets[j])) {
-                    enemies.splice(i, 1);
-                    bullets.splice(j, 1);
-                    score += 10;
-                    updateScoreboard();
-                    return;
-                }
-            }
-        }
-
-        // Player movement
-        if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
-        if (keys['ArrowRight'] && player.x < canvas.width - player.width) player.x += player.speed;
-
-        // Shooting bullets
-        if (keys['Space'] && shootCooldown <= 0) {
-            bullets.push({
-                x: player.x + player.width / 2 - 2.5,
-                y: player.y,
-                width: 5,
-                height: 10,
-                color: 'white'
-            });
-            shootCooldown = 15;
-        }
-
-        if (shootCooldown > 0) shootCooldown--;
-
-        // Update bullets
-        bullets = bullets.filter(b => b.y > 0);
-        bullets.forEach(b => b.y -= 7);
-
-        // Spawn enemies
-        if (Math.random() < 0.02) {
-            enemies.push({
-                x: Math.random() * (canvas.width - 50),
-                y: 0,
-                width: 50,
-                height: 50,
-                color: 'red'
-            });
-        }
-    }
-
-    // Draw everything
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Player
-        ctx.fillStyle = player.color;
-        ctx.fillRect(player.x, player.y, player.width, player.height);
-
-        // Bullets
-        bullets.forEach(b => {
-            ctx.fillStyle = b.color;
-            ctx.fillRect(b.x, b.y, b.width, b.height);
-        });
-
-        // Enemies
-        enemies.forEach(e => {
-            ctx.fillStyle = e.color;
-            ctx.fillRect(e.x, e.y, e.width, e.height);
-        });
-    }
-
-    // Collision check
-    function isColliding(a, b) {
-        return a.x < b.x + b.width &&
-               a.x + a.width > b.x &&
-               a.y < b.y + b.height &&
-               a.y + a.height > b.y;
-    }
-
-    // End the game
-    function endGame() {
-        gameRunning = false;
-        restartButton.style.display = 'inline-block';
-        if (score > highScore) {
-            highScore = score;
-            localStorage.setItem('highScore', highScore);
-        }
-    }
-
-    // Restart the game
-    function restartGame() {
-        // Reset everything
-        player.x = canvas.width / 2 - 25;
-        bullets = [];
-        enemies = [];
-        keys = {};
-        score = 0;
-        gameRunning = true;
-        shootCooldown = 0;
-        restartButton.style.display = 'none';
-        updateScoreboard();
+      if (gameRunning) {
+        update();
+        draw();
         requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function update() {
+      // Move enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        enemies[i].y += 3;
+
+        if (enemies[i].y + enemies[i].height >= canvas.height) {
+          endGame();
+          return;
+        }
+
+        if (isColliding(enemies[i], player)) {
+          endGame();
+          return;
+        }
+
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          if (isColliding(enemies[i], bullets[j])) {
+            enemies.splice(i, 1);
+            bullets.splice(j, 1);
+            score += 10;
+            updateScoreboard();
+            return;
+          }
+        }
+      }
+
+      // Desktop movement
+      if (keys['ArrowLeft'] || leftPressed) player.x -= player.speed;
+      if (keys['ArrowRight'] || rightPressed) player.x += player.speed;
+      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      // Shooting
+      if ((keys['Space'] || shootPressed) && shootCooldown <= 0) {
+        bullets.push({
+          x: player.x + player.width / 2 - 2.5,
+          y: player.y,
+          width: 5,
+          height: 10,
+          color: 'white'
+        });
+        shootCooldown = 15;
+      }
+
+      if (shootCooldown > 0) shootCooldown--;
+
+      bullets = bullets.filter(b => b.y > 0);
+      bullets.forEach(b => b.y -= 7);
+
+      if (Math.random() < 0.02) {
+        enemies.push({
+          x: Math.random() * (canvas.width - 50),
+          y: 0,
+          width: 50,
+          height: 50,
+          color: 'red'
+        });
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      bullets.forEach(b => {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+      });
+
+      enemies.forEach(e => {
+        ctx.fillStyle = e.color;
+        ctx.fillRect(e.x, e.y, e.width, e.height);
+      });
+    }
+
+    function isColliding(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    function endGame() {
+      gameRunning = false;
+      restartButton.style.display = 'inline-block';
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+      }
+    }
+
+    function restartGame() {
+      player.x = canvas.width / 2 - 25;
+      bullets = [];
+      enemies = [];
+      score = 0;
+      gameRunning = true;
+      shootCooldown = 0;
+      restartButton.style.display = 'none';
+      updateScoreboard();
+      requestAnimationFrame(gameLoop);
     }
 
     restartButton.addEventListener('click', restartGame);
 
-    // Update the scoreboard
     function updateScoreboard() {
-        scoreboard.textContent = `Score: ${score} | High Score: ${highScore}`;
+      scoreboard.textContent = `Score: ${score} | High Score: ${highScore}`;
     }
 
-    // Start the game
     updateScoreboard();
     requestAnimationFrame(gameLoop);
-</script>
+  </script>
 </body>
 </html>
