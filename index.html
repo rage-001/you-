@@ -1,242 +1,251 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Shooting Game</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-    }
-    canvas {
-      background: #111;
-      display: block;
-      margin: auto;
-      border: 2px solid white;
-      touch-action: none;
-    }
-    #ui {
-      position: absolute;
-      top: 10px;
-      width: 100%;
-      text-align: center;
-      z-index: 2;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-top: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shooting Game Final</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            font-family: sans-serif;
+        }
+        canvas {
+            border: 2px solid white;
+            background-color: black;
+        }
+        #startScreen, #gameOverScreen, #pauseScreen {
+            position: absolute;
+            text-align: center;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border: 2px solid white;
+            border-radius: 15px;
+        }
+        #mobileControls {
+            display: none;
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+        #mobileControls button {
+            font-size: 30px;
+            margin: 10px 40px;
+            padding: 10px 30px;
+            border-radius: 10px;
+            border: none;
+            background-color: #444;
+            color: white;
+            opacity: 0.7;
+        }
+    </style>
 </head>
 <body>
-  <div id="ui">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
     <div id="startScreen">
-      <h1>Simple Shooting Game</h1>
-      <p>Use Arrow keys to move. Space to shoot. P to Pause.</p>
-      <p>Touch screen to move and shoot on mobile.</p>
-      <button onclick="startGame()">Start Game</button>
+        <h1>Shooting Game</h1>
+        <p>Use ⬅️ ➡️ arrows or buttons to move</p>
+        <p>Press SPACE to shoot</p>
+        <p>Survive and score high!</p>
+        <button onclick="startGame()">Start</button>
     </div>
+
+    <div id="pauseScreen" style="display:none;">
+        <h2>Paused</h2>
+        <button onclick="togglePause()">Resume</button>
+    </div>
+
     <div id="gameOverScreen" style="display:none;">
-      <h1>Game Over</h1>
-      <p id="finalScore"></p>
-      <p id="highScore"></p>
-      <button onclick="restartGame()">Retry</button>
+        <h2>Game Over</h2>
+        <p id="finalScore"></p>
+        <p id="highScoreText"></p>
+        <button onclick="location.reload()">Retry</button>
     </div>
-  </div>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
-  <audio id="bgMusic" loop>
-    <source src="https://cdn.pixabay.com/audio/2023/04/06/audio_255e8e5150.mp3" type="audio/mpeg">
-  </audio>
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const music = document.getElementById("bgMusic");
 
-    let keys = {};
-    let bullets = [];
-    let enemies = [];
-    let lastEnemySpawn = 0;
-    let score = 0;
-    let highScore = localStorage.getItem("highScore") || 0;
-    let lives = 3;
-    let gameRunning = false;
-    let gamePaused = false;
+    <div id="mobileControls">
+        <button id="leftBtn">◀️</button>
+        <button id="rightBtn">▶️</button>
+    </div>
 
-    const player = {
-      x: canvas.width / 2 - 25,
-      y: canvas.height - 60,
-      width: 50,
-      height: 50,
-      color: "white",
-      speed: 6
-    };
+    <audio id="bgMusic" loop>
+        <source src="https://www.bensound.com/bensound-music/bensound-epic.mp3" type="audio/mpeg">
+    </audio>
 
-    document.addEventListener("keydown", e => {
-      keys[e.code] = true;
-      if (e.code === "KeyP") gamePaused = !gamePaused;
-    });
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const bgMusic = document.getElementById("bgMusic");
 
-    document.addEventListener("keyup", e => keys[e.code] = false);
+        const keys = {};
+        let bullets = [];
+        let enemies = [];
+        let score = 0;
+        let lives = 3;
+        let highScore = localStorage.getItem("highScore") || 0;
+        let gamePaused = false;
+        let gameRunning = false;
+        let enemySpawnInterval = 1000;
+        let lastEnemySpawn = 0;
 
-    // Mobile Controls
-    canvas.addEventListener("touchstart", e => {
-      const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-      if (touchX < player.x) player.x -= player.speed * 2;
-      else player.x += player.speed * 2;
-      bullets.push({ x: player.x + player.width/2 - 2.5, y: player.y, width: 5, height: 10 });
-    });
+        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        let movingLeft = false, movingRight = false;
 
-    function spawnEnemy() {
-      const types = ["normal", "fast", "big", "zigzag"];
-      const type = types[Math.floor(Math.random() * types.length)];
-      const width = type === "big" ? 80 : 50;
-      const height = 50;
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 60,
+            width: 50,
+            height: 50,
+            color: 'white',
+            speed: isMobile ? 12 : 7
+        };
 
-      // Randomly left or right half
-      const side = Math.random() < 0.5 ? "left" : "right";
-      const halfWidth = canvas.width / 2;
-      const minX = side === "left" ? 0 : halfWidth;
-      const maxX = side === "left" ? halfWidth - width : canvas.width - width;
-      const x = Math.random() * (maxX - minX) + minX;
+        document.addEventListener("keydown", (e) => keys[e.code] = true);
+        document.addEventListener("keyup", (e) => keys[e.code] = false);
 
-      enemies.push({
-        x,
-        y: 0,
-        width,
-        height,
-        type,
-        color: "red",
-        dx: type === "zigzag" ? (Math.random() > 0.5 ? 2 : -2) : 0
-      });
-    }
-
-    function update() {
-      if (!gameRunning || gamePaused) return;
-
-      const now = Date.now();
-      if (now - lastEnemySpawn > 1000) {
-        spawnEnemy();
-        lastEnemySpawn = now;
-      }
-
-      // Move player
-      if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
-      if (keys["ArrowRight"] && player.x < canvas.width - player.width) player.x += player.speed;
-
-      if (keys["Space"]) {
-        bullets.push({ x: player.x + player.width/2 - 2.5, y: player.y, width: 5, height: 10 });
-        keys["Space"] = false;
-      }
-
-      bullets.forEach((b, i) => {
-        b.y -= 7;
-        if (b.y < 0) bullets.splice(i, 1);
-      });
-
-      enemies.forEach((e, i) => {
-        e.y += e.type === "fast" ? 5 : 2;
-        if (e.type === "zigzag") {
-          e.x += e.dx;
-          if (e.x < 0 || e.x + e.width > canvas.width) e.dx *= -1;
+        if (isMobile) {
+            document.getElementById("mobileControls").style.display = "block";
+            document.getElementById("leftBtn").addEventListener("touchstart", () => movingLeft = true);
+            document.getElementById("leftBtn").addEventListener("touchend", () => movingLeft = false);
+            document.getElementById("rightBtn").addEventListener("touchstart", () => movingRight = true);
+            document.getElementById("rightBtn").addEventListener("touchend", () => movingRight = false);
         }
 
-        // Check collision with bullets
-        bullets.forEach((b, j) => {
-          if (isColliding(b, e)) {
-            bullets.splice(j, 1);
-            enemies.splice(i, 1);
-            score += 10;
-          }
+        function startGame() {
+            document.getElementById("startScreen").style.display = "none";
+            bgMusic.play();
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function togglePause() {
+            gamePaused = !gamePaused;
+            document.getElementById("pauseScreen").style.display = gamePaused ? "block" : "none";
+        }
+
+        document.addEventListener("keydown", e => {
+            if (e.code === "KeyP") togglePause();
+            if (e.code === "Space" && gameRunning && !gamePaused) {
+                bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y, width: 5, height: 10, color: 'white' });
+            }
         });
 
-        // Enemy off screen
-        if (e.y > canvas.height) {
-          enemies.splice(i, 1);
-          lives--;
-          if (lives <= 0) endGame();
+        function spawnEnemy() {
+            const type = Math.random();
+            let enemy = {
+                x: Math.random() * (canvas.width - 50),
+                y: 0,
+                width: 50,
+                height: 50,
+                color: 'red',
+                speed: 2 + Math.random() * 2,
+                zigzag: type > 0.7,
+                dx: type > 0.7 ? (Math.random() < 0.5 ? -1 : 1) * 2 : 0
+            };
+            enemies.push(enemy);
         }
-      });
 
-      // Increase difficulty
-      if (score % 100 === 0 && score !== 0) player.speed += 0.1;
-    }
+        function update() {
+            if (!gameRunning || gamePaused) return;
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if ((keys["ArrowLeft"] || movingLeft) && player.x > 0) player.x -= player.speed;
+            if ((keys["ArrowRight"] || movingRight) && player.x < canvas.width - player.width) player.x += player.speed;
 
-      if (!gameRunning) return;
+            bullets.forEach((b, i) => {
+                b.y -= 7;
+                if (b.y < 0) bullets.splice(i, 1);
+            });
 
-      // Draw player
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.width, player.height);
+            enemies.forEach((e, i) => {
+                e.y += e.speed;
+                if (e.zigzag) {
+                    e.x += e.dx;
+                    if (e.x <= 0 || e.x + e.width >= canvas.width) e.dx *= -1;
+                }
 
-      // Draw bullets
-      ctx.fillStyle = "white";
-      bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+                if (e.y > canvas.height) {
+                    enemies.splice(i, 1);
+                    lives--;
+                    if (lives <= 0) endGame();
+                }
 
-      // Draw enemies
-      ctx.fillStyle = "red";
-      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+                bullets.forEach((b, j) => {
+                    if (isColliding(b, e)) {
+                        bullets.splice(j, 1);
+                        enemies.splice(i, 1);
+                        score += 10;
+                    }
+                });
+            });
 
-      // HUD
-      ctx.fillStyle = "white";
-      ctx.font = "18px Arial";
-      ctx.fillText(`Score: ${score}`, 10, 20);
-      ctx.fillText(`Lives: ${lives}`, canvas.width - 100, 20);
+            if (Date.now() - lastEnemySpawn > enemySpawnInterval) {
+                spawnEnemy();
+                lastEnemySpawn = Date.now();
+            }
 
-      if (gamePaused) {
-        ctx.font = "36px Arial";
-        ctx.fillText("PAUSED", canvas.width / 2 - 70, canvas.height / 2);
-      }
-    }
+            if (score % 100 === 0 && score > 0) {
+                enemySpawnInterval = Math.max(300, enemySpawnInterval - 50);
+            }
+        }
 
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function isColliding(r1, r2) {
-      return r1.x < r2.x + r2.width &&
-             r1.x + r1.width > r2.x &&
-             r1.y < r2.y + r2.height &&
-             r1.y + r1.height > r2.y;
-    }
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
 
-    function startGame() {
-      document.getElementById("startScreen").style.display = "none";
-      gameRunning = true;
-      music.play();
-      gameLoop();
-    }
+            // Draw bullets
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+            });
 
-    function endGame() {
-      gameRunning = false;
-      music.pause();
-      document.getElementById("gameOverScreen").style.display = "block";
-      document.getElementById("finalScore").innerText = `Your Score: ${score}`;
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("highScore", highScore);
-      }
-      document.getElementById("highScore").innerText = `High Score: ${highScore}`;
-    }
+            // Draw enemies
+            enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                ctx.fillRect(e.x, e.y, e.width, e.height);
+            });
 
-    function restartGame() {
-      document.getElementById("gameOverScreen").style.display = "none";
-      score = 0;
-      lives = 3;
-      bullets = [];
-      enemies = [];
-      player.x = canvas.width / 2 - 25;
-      gameRunning = true;
-      music.play();
-    }
-  </script>
+            // HUD
+            ctx.fillStyle = 'white';
+            ctx.fillText(`Score: ${score}`, 10, 20);
+            ctx.fillText(`Lives: ${lives}`, 10, 40);
+            ctx.fillText(`High Score: ${highScore}`, canvas.width - 150, 20);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) requestAnimationFrame(gameLoop);
+        }
+
+        function isColliding(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+
+        function endGame() {
+            gameRunning = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("highScore", score);
+            }
+            document.getElementById("finalScore").innerText = `Your Score: ${score}`;
+            document.getElementById("highScoreText").innerText = `High Score: ${highScore}`;
+            document.getElementById("gameOverScreen").style.display = "block";
+        }
+    </script>
 </body>
 </html>
